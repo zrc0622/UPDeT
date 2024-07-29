@@ -74,11 +74,11 @@ if __name__ == '__main__':
     params = deepcopy(sys.argv)
 
     # Get the defaults from default.yaml
-    with open(os.path.join(os.path.dirname(__file__), "config", "skill_updet.yaml"), "r") as f:
+    with open(os.path.join(os.path.dirname(__file__), "config", "phase_updet.yaml"), "r") as f:
         try:
             config_dict = yaml.load(f)
         except yaml.YAMLError as exc:
-            assert False, "skill_updet.yaml error: {}".format(exc)
+            assert False, "phase_updet.yaml error: {}".format(exc)
 
     # Load algorithm and env base configs
     env_config = _get_config(params, "--env-config", "envs")

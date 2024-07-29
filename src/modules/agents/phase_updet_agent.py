@@ -4,15 +4,15 @@ import torch
 import argparse
 
 
-class SkillUPDeT(nn.Module):
+class PhaseUPDeT(nn.Module):
     def __init__(self, input_shape, args):
-        super(SkillUPDeT, self).__init__()
+        super(PhaseUPDeT, self).__init__()
         self.args = args
         self.transformer = Transformer(args.token_dim, args.emb, args.heads, args.depth, args.emb)
         self.q_basic = nn.Linear(args.emb, 6)
 
     def init_hidden(self):
-        # make hidden states on same device as model
+        # 创建一个全0的隐藏状态
         return torch.zeros(1, self.args.emb).cuda()
 
     def forward(self, inputs, hidden_state, task_enemy_num, task_ally_num):
@@ -184,7 +184,7 @@ if __name__ == '__main__':
 
 
     # testing the agent
-    agent = SkillUPDeT(None, args).cuda()
+    agent = PhaseUPDeT(None, args).cuda()
     hidden_state = agent.init_hidden().cuda().expand(args.ally_num, 1, -1)
     tensor = torch.rand(args.ally_num, args.ally_num+args.enemy_num, args.token_dim).cuda()
     q_list = []
