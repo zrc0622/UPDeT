@@ -2,6 +2,7 @@ import copy
 from components.episode_buffer import EpisodeBatch
 from modules.mixers.vdn import VDNMixer
 from modules.mixers.qmix import QMixer
+from modules.mixers.pqmix import PQMixer
 import torch as th
 from torch.optim import RMSprop
 
@@ -9,6 +10,7 @@ from torch.optim import RMSprop
 class QLearner:
     def __init__(self, mac, scheme, logger, args):
         self.args = args
+        self.zero_shot = args.zero_shot
         self.mac = mac
         self.logger = logger
 
@@ -22,6 +24,8 @@ class QLearner:
                 self.mixer = VDNMixer()
             elif args.mixer == "qmix":
                 self.mixer = QMixer(args)
+            elif args.mixer == "pqmix":
+                self.mixer = PQMixer(args)
             else:
                 raise ValueError("Mixer {} not recognised.".format(args.mixer))
             self.params += list(self.mixer.parameters())
@@ -78,7 +82,10 @@ class QLearner:
             target_max_qvals = target_mac_out.max(dim=3)[0]
 
         # Mix
-        if self.mixer is not None:
+        if self.mixer is not None and self.args.mixer == "pqmix":
+            chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1], batch["phase_representation"][:, :-1])
+            target_max_qvals = self.target_mixer(target_max_qvals, batch["state"][:, 1:], batch["phase_representation"][:, 1:])
+        else:
             chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1])
             target_max_qvals = self.target_mixer(target_max_qvals, batch["state"][:, 1:])
 
@@ -138,6 +145,6 @@ class QLearner:
         self.mac.load_models(path)
         # Not quite right but I don't want to save target networks
         self.target_mac.load_models(path)
-        if self.mixer is not None:
+        if self.mixer is not None and not self.zero_shot:
             self.mixer.load_state_dict(th.load("{}/mixer.th".format(path), map_location=lambda storage, loc: storage))
         self.optimiser.load_state_dict(th.load("{}/opt.th".format(path), map_location=lambda storage, loc: storage))

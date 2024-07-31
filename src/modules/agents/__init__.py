@@ -6,8 +6,11 @@ REGISTRY["rnn"] = RNNAgent
 from .updet_agent import UPDeT
 REGISTRY['updet'] = UPDeT
 
-from .phase_updet_agent import PhaseUPDeT
-REGISTRY['phase_updet'] = PhaseUPDeT
+from .phase_updet_agent import PhaseUPDeT1
+REGISTRY['phase_updet1'] = PhaseUPDeT1
+
+from .phase_updet_agent import PhaseUPDeT2
+REGISTRY['phase_updet2'] = PhaseUPDeT2
 
 from .transformer_agg_agent import TransformerAggregationAgent
 REGISTRY['transformer_aggregation'] = TransformerAggregationAgent

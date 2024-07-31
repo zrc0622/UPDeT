@@ -1,0 +1,33 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "PUPDeT1",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/phase_main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--total-config=phase_updet1",
+                "--config=qmix",
+                "--env-config=sc2",
+                "with",
+                "env_args.map_name=5m_vs_6m"
+            ]
+        },
+        {
+            "name": "PUPDeT2",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/phase_main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--total-config=phase_updet2",
+                "--config=pqmix",
+                "--env-config=sc2",
+                "with",
+                "env_args.map_name=5m_vs_6m"
+            ]
+        }
+    ]
+}

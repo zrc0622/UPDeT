@@ -2,34 +2,51 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import argparse
+from sparsemax import Sparsemax
 
 
-class PhaseUPDeT(nn.Module):
+class PhaseUPDeT1(nn.Module):
     def __init__(self, input_shape, args):
-        super(PhaseUPDeT, self).__init__()
+        super(PhaseUPDeT1, self).__init__()
         self.args = args
-        self.transformer = Transformer(args.token_dim, args.emb, args.heads, args.depth, args.emb)
-        self.q_basic = nn.Linear(args.emb, 6)
+        self.transformer = Transformer1(args.token_dim, args.emb, args.heads, args.depth, args.emb, args.phase_num, args.mask, args.mask_prob)
+        self.q_self = nn.Linear(args.emb+args.phase_rep, 6)
+        if(args.divide_Q): self.q_interaction = nn.Linear(args.emb+args.phase_rep, 1)
+        self.p_next = GumbelSoftmaxNetwork(args.emb, args.phase_hidden, args.phase_num, args.temperature)
 
     def init_hidden(self):
         # 创建一个全0的隐藏状态
         return torch.zeros(1, self.args.emb).cuda()
+    
+    def init_phase(self):
+        # 初始化阶段向量
+        one_hot_phase = torch.zeros(1, self.args.phase_num)
+        one_hot_phase[0, 0] = 1
+        return one_hot_phase.cuda()
 
-    def forward(self, inputs, hidden_state, task_enemy_num, task_ally_num):
-        outputs, _ = self.transformer.forward(inputs, hidden_state, None)
-        # first output for 6 action (no_op stop up down left right)
-        q_basic_actions = self.q_basic(outputs[:, 0, :])
+    def forward(self, inputs, hidden_state, phase_state, task_enemy_num, task_ally_num, test_mode):
+        outputs, _ = self.transformer.forward(inputs, hidden_state, phase_state, None, if_train=not test_mode)
+        # 倒数第二层是隐藏层
+        h = outputs[:, -2, :]
 
-        # last dim for hidden state
-        h = outputs[:, -1:, :]
+        # 倒数第一层是阶段层
+        p = outputs[:, -1, :]
+        
+        # 第一层输出不变动作 (no_op stop up down left right)
+        q_basic_actions = self.q_self(torch.cat((outputs[:, 0, :], p), -1))
 
         q_enemies_list = []
 
-        # each enemy has an output Q
-        for i in range(task_enemy_num):
-            q_enemy = self.q_basic(outputs[:, 1 + i, :])
-            q_enemy_mean = torch.mean(q_enemy, 1, True)
-            q_enemies_list.append(q_enemy_mean)
+        # 1~i层为敌人（交互动作）
+        if(self.args.divide_Q):
+            for i in range(task_enemy_num):
+                q_enemy = self.q_interaction(torch.cat((outputs[:, 1 + i, :], p), -1))
+                q_enemies_list.append(q_enemy)
+        else:
+            for i in range(task_enemy_num):
+                q_enemy = self.q_self(torch.cat((outputs[:, 1 + i, :], p), -1))
+                q_enemy_mean = torch.mean(q_enemy, 1, True)
+                q_enemies_list.append(q_enemy_mean)
 
         # concat enemy Q over all enemies
         q_enemies = torch.stack(q_enemies_list, dim=1).squeeze()
@@ -37,24 +54,98 @@ class PhaseUPDeT(nn.Module):
         # concat basic action Q with enemy attack Q
         q = torch.cat((q_basic_actions, q_enemies), 1)
 
-        return q, h
+        p_n = self.p_next(p)
+
+        # print((p>0.5).int())
+        # # print(torch.round(p_next * 10) / 10.0)
+        # print("-"*50)
+
+        if(self.args.mixer == "pqmix"):
+            return q, h, p_n, p
+        else:
+            return q, h, p_n
+
+class PhaseUPDeT2(nn.Module):
+    def __init__(self, input_shape, args):
+        super(PhaseUPDeT2, self).__init__()
+        self.args = args
+        self.transformer = Transformer2(args.token_dim, args.emb, args.heads, args.depth, args.emb, args.mask, args.mask_prob)
+        self.q_self = nn.Linear(args.emb+args.phase_rep, 6)
+        if(args.divide_Q): self.q_interaction = nn.Linear(args.emb+args.phase_rep, 1)
+        self.phase_embedding = nn.Linear(args.phase_num, args.phase_rep)
+        self.phase_representation = MLP(args.emb+args.phase_rep, args.phase_hidden, args.phase_rep)
+        self.phase_next = GumbelSoftmaxLayer(args.phase_rep, args.phase_num, args.temperature)
+        self.p_rep = None
+
+    def init_hidden(self):
+        # 创建一个全0的隐藏状态
+        return torch.zeros(1, self.args.emb).cuda()
+    
+    def init_phase(self):
+        # 初始化阶段向量
+        one_hot_phase = torch.zeros(1, self.args.phase_num)
+        one_hot_phase[0, 0] = 1
+        return one_hot_phase.cuda()
+
+    def forward(self, inputs, hidden_state, phase_state, task_enemy_num, task_ally_num, test_mode):
+        outputs, _ = self.transformer.forward(inputs, hidden_state, None, if_train=not test_mode)
+        
+        # 倒数第一层是隐藏层
+        h = outputs[:, -1:, :]
+
+        # 计算当前阶段
+        p_emb = self.phase_embedding(phase_state)
+        p_rep = self.phase_representation(torch.cat((h, p_emb), -1)) # 当前阶段
+        p_rep = p_rep.squeeze()
+
+        # 第一层输出不变动作 (no_op stop up down left right)
+        q_basic_actions = self.q_self(torch.cat((outputs[:, 0, :], p_rep), -1))
+
+        q_enemies_list = []
+
+        # 第1~i层为敌人，输出交互动作
+        if(self.args.divide_Q):
+            for i in range(task_enemy_num):
+                q_enemy = self.q_interaction(torch.cat((outputs[:, 1 + i, :], p_rep), -1))
+                q_enemies_list.append(q_enemy)
+        else:
+            for i in range(task_enemy_num):
+                q_enemy = self.q_self(torch.cat((outputs[:, 1 + i, :], p_rep), -1))
+                q_enemy_mean = torch.mean(q_enemy, 1, True)
+                q_enemies_list.append(q_enemy_mean)
+
+        # concat enemy Q over all enemies
+        q_enemies = torch.stack(q_enemies_list, dim=1).squeeze()
+
+        # concat basic action Q with enemy attack Q
+        q = torch.cat((q_basic_actions, q_enemies), 1)
+
+        p_next = self.phase_next(p_rep)
+        self.p_rep = p_rep
+        # print((p_next>0.5).int())
+        # # print(torch.round(p_next * 10) / 10.0)
+        # print("-"*50)
+
+        return q, h, p_next, p_rep
 
 class SelfAttention(nn.Module):
-    def __init__(self, emb, heads=8, mask=False):
+    def __init__(self, emb, heads=8, if_mask=False, mask_prob=0.2):
 
         super().__init__()
 
         self.emb = emb
         self.heads = heads
-        self.mask = mask
+        self.if_mask = if_mask
+        self.mask_prob = mask_prob
 
         self.tokeys = nn.Linear(emb, emb * heads, bias=False)
         self.toqueries = nn.Linear(emb, emb * heads, bias=False)
         self.tovalues = nn.Linear(emb, emb * heads, bias=False)
 
         self.unifyheads = nn.Linear(heads * emb, emb)
+        self.sparsemax = Sparsemax(dim=2)
 
-    def forward(self, x, mask):
+    def forward(self, x, mask, if_train):
 
         b, t, e = x.size()
         h = self.heads
@@ -79,8 +170,10 @@ class SelfAttention(nn.Module):
 
         assert dot.size() == (b * h, t, t)
 
-        if self.mask:  # mask out the upper half of the dot matrix, excluding the diagonal
-            mask_(dot, maskval=float('-inf'), mask_diagonal=False)
+        if self.if_mask and if_train:  # 训练阶段使用随机掩码
+            mask = torch.rand(dot.size()) < self.mask_prob
+            mask = mask.to(dot.device)
+            dot = dot.masked_fill(mask == 0, float('-inf'))
 
         if mask is not None:
             dot = dot.masked_fill(mask == 0, -1e9)
@@ -98,11 +191,11 @@ class SelfAttention(nn.Module):
 
 class TransformerBlock(nn.Module):
 
-    def __init__(self, emb, heads, mask, ff_hidden_mult=4, dropout=0.0):
+    def __init__(self, emb, heads, if_mask, mask_prob=0.2, ff_hidden_mult=4, dropout=0.0):
         super().__init__()
 
-        self.attention = SelfAttention(emb, heads=heads, mask=mask)
-        self.mask = mask
+        self.attention = SelfAttention(emb, heads=heads, if_mask=if_mask, mask_prob=mask_prob)
+        self.if_mask = if_mask
 
         self.norm1 = nn.LayerNorm(emb)
         self.norm2 = nn.LayerNorm(emb)
@@ -115,10 +208,10 @@ class TransformerBlock(nn.Module):
 
         self.do = nn.Dropout(dropout)
 
-    def forward(self, x_mask):
-        x, mask = x_mask
+    def forward(self, x_mask_train):
+        x, mask, if_train = x_mask_train
 
-        attended = self.attention(x, mask)
+        attended = self.attention(x, mask, if_train)
 
         x = self.norm1(attended + x)
 
@@ -130,12 +223,12 @@ class TransformerBlock(nn.Module):
 
         x = self.do(x)
 
-        return x, mask
+        return x, mask, if_train
 
 
-class Transformer(nn.Module):
+class Transformer1(nn.Module):
 
-    def __init__(self, input_dim, emb, heads, depth, output_dim):
+    def __init__(self, input_dim, emb, heads, depth, output_dim, phase_num, if_mask, mask_prob=0.2):
         super().__init__()
 
         self.num_tokens = output_dim
@@ -145,24 +238,58 @@ class Transformer(nn.Module):
         tblocks = []
         for i in range(depth):
             tblocks.append(
-                TransformerBlock(emb=emb, heads=heads, mask=False))
+                TransformerBlock(emb=emb, heads=heads, if_mask=if_mask, mask_prob=mask_prob))
+
+        self.tblocks = nn.Sequential(*tblocks)
+
+        self.toprobs = nn.Linear(emb, output_dim)
+        self.phase_embedding = nn.Linear(phase_num, emb)
+
+    def forward(self, x, h, p, mask, if_train):
+        p_emb = self.phase_embedding(p) # p是阶段的one hot向量
+
+        tokens = self.token_embedding(x) # (5, 11, 5)->(5, 11, 32): 5个agent、11个entity、5个最大观测
+        tokens = torch.cat((tokens, h, p_emb), 1) # (5, 13, 32)
+
+        b, t, e = tokens.size()
+
+        x, mask, if_train = self.tblocks((tokens, mask, if_train))
+
+        x = self.toprobs(x.view(b * t, e)).view(b, t, self.num_tokens) # (5, 13, 32)
+
+        return x, tokens
+
+class Transformer2(nn.Module):
+
+    def __init__(self, input_dim, emb, heads, depth, output_dim, if_mask, mask_prob):
+        super().__init__()
+
+        self.num_tokens = output_dim
+
+        self.token_embedding = nn.Linear(input_dim, emb)
+
+        tblocks = []
+        for i in range(depth):
+            tblocks.append(
+                TransformerBlock(emb=emb, heads=heads, if_mask=if_mask, mask_prob=mask_prob))
 
         self.tblocks = nn.Sequential(*tblocks)
 
         self.toprobs = nn.Linear(emb, output_dim)
 
-    def forward(self, x, h, mask):
+    def forward(self, x, h, mask, if_train):
 
-        tokens = self.token_embedding(x)
-        tokens = torch.cat((tokens, h), 1)
+        tokens = self.token_embedding(x) # (5, 11, 5)->(5, 11, 32): 5个agent、11个entity、5个最大观测
+        tokens = torch.cat((tokens, h), 1) # (5, 12, 32)
 
         b, t, e = tokens.size()
 
-        x, mask = self.tblocks((tokens, mask))
+        x, mask, if_train = self.tblocks((tokens, mask, if_train))
 
-        x = self.toprobs(x.view(b * t, e)).view(b, t, self.num_tokens)
+        x = self.toprobs(x.view(b * t, e)).view(b, t, self.num_tokens) # (5, 12, 32)
 
         return x, tokens
+
 
 def mask_(matrices, maskval=0.0, mask_diagonal=True):
 
@@ -170,6 +297,43 @@ def mask_(matrices, maskval=0.0, mask_diagonal=True):
     indices = torch.triu_indices(h, w, offset=0 if mask_diagonal else 1)
     matrices[:, indices[0], indices[1]] = maskval
 
+class GumbelSoftmaxLayer(nn.Module):
+    def __init__(self, input_dim, output_dim, temperature=1.0):
+        super(GumbelSoftmaxLayer, self).__init__()
+        self.fc = nn.Linear(input_dim, output_dim)
+        self.temperature = temperature
+    
+    def forward(self, x):
+        logits = self.fc(x)
+        return self.gumbel_softmax(logits, self.temperature)
+    
+    def gumbel_softmax(self, logits, temperature):
+        gumbels = -torch.empty_like(logits).exponential_().log()  # Sample from Gumbel(0,1)
+        gumbels = (logits + gumbels) / temperature
+        y_soft = F.softmax(gumbels, dim=-1)
+        return y_soft
+
+class GumbelSoftmaxNetwork(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, temperature=1.0):
+        super(GumbelSoftmaxNetwork, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.gumbel_softmax_layer = GumbelSoftmaxLayer(hidden_dim, output_dim, temperature)
+    
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = self.gumbel_softmax_layer(x)
+        return x
+
+class MLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim):
+        super(MLP, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, output_dim)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Unit Testing')
@@ -180,11 +344,12 @@ if __name__ == '__main__':
     parser.add_argument('--ally_num', default='5', type=int)
     parser.add_argument('--enemy_num', default='5', type=int)
     parser.add_argument('--episode', default='20', type=int)
+    parser.add_argument('--phase_num', default='6', type=int)
     args = parser.parse_args()
 
 
     # testing the agent
-    agent = PhaseUPDeT(None, args).cuda()
+    agent = PhaseUPDeT1(None, args).cuda()
     hidden_state = agent.init_hidden().cuda().expand(args.ally_num, 1, -1)
     tensor = torch.rand(args.ally_num, args.ally_num+args.enemy_num, args.token_dim).cuda()
     q_list = []

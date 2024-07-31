@@ -15,6 +15,8 @@ class BasicMAC:
         self.action_selector = action_REGISTRY[args.action_selector](args)
 
         self.hidden_states = None
+        self.phase_states = None
+        self.phase_representations = None
 
     def select_actions(self, ep_batch, t_ep, t_env, bs=slice(None), test_mode=False):
         # Only select actions for the selected batch elements in bs
@@ -26,7 +28,7 @@ class BasicMAC:
     def forward(self, ep_batch, t, test_mode=False):
 
         # rnn based agent
-        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet']:
+        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2']:
             agent_inputs = self._build_inputs(ep_batch, t)
             avail_actions = ep_batch["avail_actions"][:, t]
             agent_outs, self.hidden_states = self.agent(agent_inputs, self.hidden_states)
@@ -57,17 +59,37 @@ class BasicMAC:
         # transformer based agent
         else:
             agent_inputs = self._build_inputs_transformer(ep_batch, t)
-            agent_outs, self.hidden_states = self.agent(agent_inputs,
+            if self.args.agent in ['phase_updet1']:
+                if(self.args.mixer == "pqmix"):
+                    agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs,
+                                                           self.hidden_states.reshape(-1, 1, self.args.emb),
+                                                           self.phase_states.reshape(-1, 1, self.args.phase_num),
+                                                           self.args.enemy_num, self.args.ally_num, test_mode)
+                else:
+                    agent_outs, self.hidden_states, self.phase_states = self.agent(agent_inputs,
+                                                           self.hidden_states.reshape(-1, 1, self.args.emb),
+                                                           self.phase_states.reshape(-1, 1, self.args.phase_num),
+                                                           self.args.enemy_num, self.args.ally_num, test_mode)
+            elif self.args.agent in ['phase_updet2']:
+                agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs,
+                                                           self.hidden_states.reshape(-1, 1, self.args.emb),
+                                                           self.phase_states.reshape(-1, 1, self.args.phase_num),
+                                                           self.args.enemy_num, self.args.ally_num, test_mode)
+            else:
+                agent_outs, self.hidden_states = self.agent(agent_inputs,
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
                                                            self.args.enemy_num, self.args.ally_num)
 
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
-        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet']:
+        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2']:
             self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
         else:
             self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1)
+        
+        if self.args.agent in ['phase_updet1', 'phase_updet2']:
+            self.phase_states = self.agent.init_phase().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1)
 
 
     def parameters(self):
@@ -83,6 +105,9 @@ class BasicMAC:
         th.save(self.agent.state_dict(), "{}/agent.th".format(path))
 
     def load_models(self, path):
+        state_dict = th.load("{}/agent.th".format(path))
+        for key in state_dict.keys():
+            print(key)     
         self.agent.load_state_dict(th.load("{}/agent.th".format(path), map_location=lambda storage, loc: storage))
 
     def _build_agents(self, input_shape):

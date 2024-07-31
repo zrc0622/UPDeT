@@ -14,6 +14,7 @@ from runners import REGISTRY as r_REGISTRY
 from controllers import REGISTRY as mac_REGISTRY
 from components.episode_buffer import ReplayBuffer
 from components.transforms import OneHot
+import datetime
 
 
 def run(_run, _config, _log):
@@ -33,8 +34,11 @@ def run(_run, _config, _log):
                                        width=1)
     _log.info("\n\n" + experiment_params + "\n")
 
+    current_time = datetime.datetime.now()
+    formatted_time = current_time.strftime("%m%d%H%M")
+
     # configure tensorboard logger
-    unique_token = "{}-{}-{}-{}-dim-{}-heads-{}-depth".format(args.name, args.agent,
+    unique_token = "{}-{}-{}-{}-{}-dim-{}-heads-{}-depth".format(formatted_time, args.name, args.agent,
                                                                             args.env_args['map_name'],
                                                                             args.emb, args.heads,
                                                                             args.depth)
@@ -70,7 +74,6 @@ def run(_run, _config, _log):
 
 
 def evaluate_sequential(args, runner):
-
     for _ in range(args.test_nepisode):
         runner.run(test_mode=True)
 
@@ -98,6 +101,7 @@ def run_sequential(args, logger):
         "avail_actions": {"vshape": (env_info["n_actions"],), "group": "agents", "dtype": th.int},
         "reward": {"vshape": (1,)},
         "terminated": {"vshape": (1,), "dtype": th.uint8},
+        "phase_representation": {"vshape": args.phase_rep}
     }
     groups = {
         "agents": args.n_agents

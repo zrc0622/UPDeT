@@ -13,8 +13,9 @@ class EpisodeRunner:
         assert self.batch_size == 1
 
         self.env = env_REGISTRY[self.args.env](**self.args.env_args)
-        self.episode_limit = self.env.episode_limit
+        self.episode_limit = self.env.episode_limit # 70
         self.t = 0
+        self.num = 0
 
         self.t_env = 0
 
@@ -69,21 +70,38 @@ class EpisodeRunner:
             reward, terminated, env_info = self.env.step(actions[0])
             episode_return += reward
 
-            post_transition_data = {
-                "actions": actions,
-                "reward": [(reward,)],
-                "terminated": [(terminated != env_info.get("episode_limit", False),)],
-            }
+            if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2"]):
+                post_transition_data = {
+                    "actions": actions,
+                    "reward": [(reward,)],
+                    "terminated": [(terminated != env_info.get("episode_limit", False),)],
+                    "phase_representation": self.mac.phase_representations.mean(dim=0),
+                }
+            else:
+                post_transition_data = {
+                    "actions": actions,
+                    "reward": [(reward,)],
+                    "terminated": [(terminated != env_info.get("episode_limit", False),)],
+                }
 
             self.batch.update(post_transition_data, ts=self.t)
 
             self.t += 1
 
-        last_data = {
-            "state": [self.env.get_state()],
-            "avail_actions": [self.env.get_avail_actions()],
-            "obs": [self.env.get_obs()]
-        }
+        if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2"]):
+            last_data = {
+                "state": [self.env.get_state()],
+                "avail_actions": [self.env.get_avail_actions()],
+                "obs": [self.env.get_obs()],
+                "phase_representation": self.mac.phase_representations.mean(dim=0),
+            }
+        else:
+            last_data = {
+                "state": [self.env.get_state()],
+                "avail_actions": [self.env.get_avail_actions()],
+                "obs": [self.env.get_obs()]
+            }
+
         self.batch.update(last_data, ts=self.t)
 
         # Select actions in the last stored state
@@ -109,6 +127,13 @@ class EpisodeRunner:
             if hasattr(self.mac.action_selector, "epsilon"):
                 self.logger.log_stat("epsilon", self.mac.action_selector.epsilon, self.t_env)
             self.log_train_stats_t = self.t_env
+        
+        if len(self.test_returns)+1 == self.args.test_nepisode:
+            print("-"*50)
+            print("battle_won_mean: ", cur_stats["battle_won"]/cur_stats["n_episodes"])
+            print("dead_enemy_mean: ", cur_stats["dead_enemies"]/cur_stats["n_episodes"])
+            print("n_episodes: ", cur_stats["n_episodes"])
+            print("-"*50)
 
         return self.batch
 
