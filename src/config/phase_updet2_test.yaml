@@ -20,7 +20,7 @@ buffer_cpu_only: True # If true we won't keep all of the replay buffer in vram
 use_tensorboard: False # Log results to tensorboard
 save_model: False # Save the models to disk
 save_model_interval: 400000 # Save models after this many timesteps
-checkpoint_path: "/root/project/UPDeT/results/models/07312257-pqmix-phase_updet2-5m_vs_6m-32-dim-3-heads-2-depth-seed-71872294" # Load a checkpoint from this path
+checkpoint_path: "/root/project/UPDeT/results/models//07301702-qmix-phase_updet2-5m_vs_6m-32-dim-3-heads-2-depth-seed-105488776" # Load a checkpoint from this path
 evaluate: True # Evaluate model for test_nepisode episodes and quit (no training)
 load_step: 0 # Load model trained on this many timesteps (0 if choose max possible)
 save_replay: False # Saving the replay of the model loaded from checkpoint_path
@@ -47,13 +47,13 @@ token_dim: 5 # Marines. For other unit type (e.g. Zeolot) this number can be dif
 emb: 32 # embedding dimension of transformer
 heads: 3 # head number of transformer
 depth: 2 # block number of transformer
-ally_num: 8 # number of ally (5m_vs_6m)
-enemy_num: 9 # number of enemy (5m_vs_6m)
+ally_num: 5 # number of ally (5m_vs_6m)
+enemy_num: 6 # number of enemy (5m_vs_6m)
 zero_shot: True
 phase_num: 6 # 阶段数
 phase_hidden: 48 # 阶段层中间维度
 phase_rep: 32 # 阶段表征维度
-temperature: 0.5
+temperature: 0.15
 divide_Q: False
 mask: False
 mask_prob: 0.2
