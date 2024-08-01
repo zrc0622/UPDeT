@@ -56,7 +56,7 @@ class PhaseUPDeT1(nn.Module):
 
         p_n = self.p_next(p)
 
-        # print((p>0.5).int())
+        # print((p_n>0.5).int())
         # # print(torch.round(p_next * 10) / 10.0)
         # print("-"*50)
 
@@ -127,6 +127,86 @@ class PhaseUPDeT2(nn.Module):
         # print("-"*50)
 
         return q, h, p_next, p_rep
+
+class PhaseUPDeT3(nn.Module):
+    def __init__(self, input_shape, args):
+        super(PhaseUPDeT3, self).__init__()
+        self.args = args
+        self.transformer = Transformer2(args.token_dim, args.emb, args.heads, args.depth, args.emb, args.mask, args.mask_prob)
+        self.q_self = nn.Linear(args.emb+args.phase_rep, 6)
+        if(args.divide_Q): self.q_interaction = nn.Linear(args.emb+args.phase_rep, 1)
+        
+        self.p_rep = None
+        p_e = self.generate_orthogonal_vectors(args.phase_num, args.phase_rep)
+        self.p_e_w = nn.Parameter(p_e, requires_grad=False) # (6, 32)
+        self.classify = DoubleMLP(args.emb+args.phase_rep, args.phase_hidden1, args.phase_hidden2, args.phase_num)
+
+    def gram_schmidt(self, vectors):
+        orthogonal_vectors = []
+        for v in vectors:
+            w = v.clone()
+            for u in orthogonal_vectors:
+                w -= (u @ w) * u
+            w /= torch.norm(w)
+            orthogonal_vectors.append(w)
+        return torch.stack(orthogonal_vectors)
+
+    def generate_orthogonal_vectors(self, n, m):
+        # 生成n个维度为m的随机向量
+        random_vectors = torch.randn(n, m)
+        # 进行Gram-Schmidt正交化
+        orthogonal_vectors = self.gram_schmidt(random_vectors)
+        return orthogonal_vectors
+
+    def init_hidden(self):
+        # 创建一个全0的隐藏状态
+        return torch.zeros(1, self.args.emb).cuda()
+    
+    def init_phase(self):
+        # 初始化阶段向量
+        phase = self.p_e_w[0, :]
+        return phase.cuda()
+
+    def forward(self, inputs, hidden_state, p_h, task_enemy_num, task_ally_num, test_mode):
+        outputs, _ = self.transformer.forward(inputs, hidden_state, None, if_train=not test_mode)
+        
+        # 倒数第一层是隐藏层
+        h = outputs[:, -1:, :]
+
+        # 计算当前阶段
+        p_n_logits = self.classify(torch.cat((h, p_h), -1)) # (32, 5, 6)
+        p_n_probs = F.softmax(p_n_logits, dim=-1)
+        p_rep = torch.matmul(p_n_probs, self.p_e_w) # (32, 5, 6) * (6, 32)
+        p_rep = p_rep.squeeze()
+
+        # 第一层输出不变动作 (no_op stop up down left right)
+        q_basic_actions = self.q_self(torch.cat((outputs[:, 0, :], p_rep), -1))
+
+        q_enemies_list = []
+
+        # 第1~i层为敌人，输出交互动作
+        if(self.args.divide_Q):
+            for i in range(task_enemy_num):
+                q_enemy = self.q_interaction(torch.cat((outputs[:, 1 + i, :], p_rep), -1))
+                q_enemies_list.append(q_enemy)
+        else:
+            for i in range(task_enemy_num):
+                q_enemy = self.q_self(torch.cat((outputs[:, 1 + i, :], p_rep), -1))
+                q_enemy_mean = torch.mean(q_enemy, 1, True)
+                q_enemies_list.append(q_enemy_mean)
+
+        # concat enemy Q over all enemies
+        q_enemies = torch.stack(q_enemies_list, dim=1).squeeze()
+
+        # concat basic action Q with enemy attack Q
+        q = torch.cat((q_basic_actions, q_enemies), 1)
+
+        self.p_rep = p_rep
+        # print((p_next>0.5).int())
+        # # print(torch.round(p_next * 10) / 10.0)
+        # print("-"*50)
+
+        return q, h, p_rep, p_rep
 
 class SelfAttention(nn.Module):
     def __init__(self, emb, heads=8, if_mask=False, mask_prob=0.2):
@@ -333,6 +413,19 @@ class MLP(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
+        return x
+
+class DoubleMLP(nn.Module):
+    def __init__(self, input_dim, hidden_dim1, hidden_dim2, output_dim):
+        super(DoubleMLP, self).__init__()
+        self.fc1 = nn.Linear(input_dim, hidden_dim1)
+        self.fc2 = nn.Linear(hidden_dim1, hidden_dim2)
+        self.fc3 = nn.Linear(hidden_dim2, output_dim)
+
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
         return x
 
 if __name__ == '__main__':

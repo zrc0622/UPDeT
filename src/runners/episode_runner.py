@@ -70,7 +70,7 @@ class EpisodeRunner:
             reward, terminated, env_info = self.env.step(actions[0])
             episode_return += reward
 
-            if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2"]):
+            if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2", 'phase_updet3']):
                 post_transition_data = {
                     "actions": actions,
                     "reward": [(reward,)],
@@ -88,7 +88,7 @@ class EpisodeRunner:
 
             self.t += 1
 
-        if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2"]):
+        if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2", 'phase_updet3']):
             last_data = {
                 "state": [self.env.get_state()],
                 "avail_actions": [self.env.get_avail_actions()],

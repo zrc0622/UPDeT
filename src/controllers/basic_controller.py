@@ -28,7 +28,7 @@ class BasicMAC:
     def forward(self, ep_batch, t, test_mode=False):
 
         # rnn based agent
-        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2']:
+        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2', 'phase_updet3']:
             agent_inputs = self._build_inputs(ep_batch, t)
             avail_actions = ep_batch["avail_actions"][:, t]
             agent_outs, self.hidden_states = self.agent(agent_inputs, self.hidden_states)
@@ -75,6 +75,11 @@ class BasicMAC:
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
                                                            self.phase_states.reshape(-1, 1, self.args.phase_num),
                                                            self.args.enemy_num, self.args.ally_num, test_mode)
+            elif self.args.agent in ['phase_updet3']:
+                agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs,
+                                                           self.hidden_states.reshape(-1, 1, self.args.emb),
+                                                           self.phase_states.reshape(-1, 1, self.args.phase_rep),
+                                                           self.args.enemy_num, self.args.ally_num, test_mode)
             else:
                 agent_outs, self.hidden_states = self.agent(agent_inputs,
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
@@ -83,12 +88,12 @@ class BasicMAC:
         return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
-        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2']:
+        if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2', 'phase_updet3']:
             self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, -1)  # bav
         else:
             self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1)
         
-        if self.args.agent in ['phase_updet1', 'phase_updet2']:
+        if self.args.agent in ['phase_updet1', 'phase_updet2', 'phase_updet3']:
             self.phase_states = self.agent.init_phase().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1)
 
 
