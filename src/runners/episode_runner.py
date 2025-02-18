@@ -93,7 +93,7 @@ class EpisodeRunner:
                 "state": [self.env.get_state()],
                 "avail_actions": [self.env.get_avail_actions()],
                 "obs": [self.env.get_obs()],
-                "phase_representation": self.mac.phase_representations.mean(dim=0),
+                "phase_representation": self.mac.phase_representations.mean(dim=0), # kl_3
             }
         else:
             last_data = {

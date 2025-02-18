@@ -8,10 +8,14 @@ python3 src/phase_main.py --total-config=phase_updet1 --config=qmix --env-config
 
 # Phase UPDeT 2
 python3 src/phase_main.py --total-config=phase_updet2 --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
+
+# Phase UPDeT 3
+python3 src/phase_main.py --total-config=phase_updet3 --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
 ```
 
 # 介绍
 ## 环境介绍
+```
 [DEBUG 18:44:30] absl ------------------------Obs Agent: 0------------------------
 [DEBUG 18:44:30] absl Avail. actions [0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
@@ -31,3 +35,4 @@ python3 src/phase_main.py --total-config=phase_updet2 --config=qmix --env-config
  [ 1.          0.24877211 -0.15332031  0.19590929  0.6       ]
  [ 1.          0.24076377  0.01554362  0.2402615   0.73333335]]
 [DEBUG 18:44:30] absl Own feats [0.6]
+```

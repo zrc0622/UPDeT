@@ -83,7 +83,7 @@ class QLearner:
 
         # Mix
         if self.mixer is not None and self.args.mixer == "pqmix":
-            chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1], batch["phase_representation"][:, :-1])
+            chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1], batch["phase_representation"][:, :-1]) # kl_4
             target_max_qvals = self.target_mixer(target_max_qvals, batch["state"][:, 1:], batch["phase_representation"][:, 1:])
         else:
             chosen_action_qvals = self.mixer(chosen_action_qvals, batch["state"][:, :-1])

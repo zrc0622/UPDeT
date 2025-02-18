@@ -126,7 +126,7 @@ class PhaseUPDeT2(nn.Module):
         # # print(torch.round(p_next * 10) / 10.0)
         # print("-"*50)
 
-        return q, h, p_next, p_rep
+        return q, h, p_next, p_rep # kl_1
 
 class PhaseUPDeT3(nn.Module):
     def __init__(self, input_shape, args):

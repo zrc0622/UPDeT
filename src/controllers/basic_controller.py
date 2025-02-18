@@ -71,7 +71,7 @@ class BasicMAC:
                                                            self.phase_states.reshape(-1, 1, self.args.phase_num),
                                                            self.args.enemy_num, self.args.ally_num, test_mode)
             elif self.args.agent in ['phase_updet2']:
-                agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs,
+                agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs, # kl_2
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
                                                            self.phase_states.reshape(-1, 1, self.args.phase_num),
                                                            self.args.enemy_num, self.args.ally_num, test_mode)
