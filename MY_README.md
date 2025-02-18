@@ -36,3 +36,26 @@ python3 src/phase_main.py --total-config=phase_updet3 --config=qmix --env-config
  [ 1.          0.24076377  0.01554362  0.2402615   0.73333335]]
 [DEBUG 18:44:30] absl Own feats [0.6]
 ```
+## 算法介绍
+### divide q
+`divide q`如果为`True`，那么`self mlp`和`interaction mlp`不共用
+`divide q`如果为`False`，那么`self mlp`和`interaction mlp`共用，此时`interaction mlp`需要取均值
+
+### input q phase
+`input q phase`如果为`True`，那么在计算q值时引入阶段embedding（将阶段embedding与状态拼接进行计算）
+
+### pqmix
+`pqmix`在`qmix`的基础上引入了阶段embedding
+
+### 几种算法
+#### TransT
+#### DivideT
+```
+Phase UPDeT 2
+QMIX
+temperature 0.15
+phase_num 6
+divide_Q False
+intput_Q_phase True
+```
+#### DivideP
