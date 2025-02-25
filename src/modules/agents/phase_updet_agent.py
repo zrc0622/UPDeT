@@ -83,6 +83,7 @@ class PhaseUPDeT2(nn.Module):
     
     def init_phase(self):
         # 初始化阶段向量
+        # print("-"*50)
         one_hot_phase = torch.zeros(1, self.args.phase_num)
         one_hot_phase[0, 0] = 1
         return one_hot_phase.cuda()
@@ -126,7 +127,11 @@ class PhaseUPDeT2(nn.Module):
         # # print(torch.round(p_next * 10) / 10.0)
         # print("-"*50)
 
-        return q, h, p_next, p_rep # kl_1
+        if self.args.pqmix_v2:
+            p_indices = torch.argmax(p_next, dim=-1) + 1
+            return q, h, p_next, p_indices
+        else:
+            return q, h, p_next, p_rep # kl_1
 
 class PhaseUPDeT3(nn.Module):
     def __init__(self, input_shape, args):

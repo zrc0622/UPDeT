@@ -11,7 +11,10 @@ class PQMixer(nn.Module):
         self.args = args
         self.n_agents = args.n_agents
         self.state_dim = int(np.prod(args.state_shape)) # 98
-        self.state_dim = self.state_dim + args.phase_rep
+        if self.args.agent in ['phase_updet2'] and self.args.pqmix_v2:
+            self.state_dim = self.state_dim + self.args.ally_num
+        else:
+            self.state_dim = self.state_dim + self.args.phase_rep
 
         self.embed_dim = args.mixing_embed_dim
 

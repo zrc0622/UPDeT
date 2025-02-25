@@ -9,6 +9,8 @@ python3 src/phase_main.py --total-config=phase_updet1 --config=qmix --env-config
 # Phase UPDeT 2
 python3 src/phase_main.py --total-config=phase_updet2 --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
 
+python3 src/phase_main.py --total-config=phase_updet2_test --config=qmix --env-config=sc2 with env_args.map_name=8m_vs_9m
+
 # Phase UPDeT 3
 python3 src/phase_main.py --total-config=phase_updet3 --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
 ```
@@ -45,7 +47,10 @@ python3 src/phase_main.py --total-config=phase_updet3 --config=qmix --env-config
 `input q phase`如果为`True`，那么在计算q值时引入阶段embedding（将阶段embedding与状态拼接进行计算）
 
 ### pqmix
-`pqmix`在`qmix`的基础上引入了阶段embedding
+`pqmix`在`qmix`的基础上引入了阶段embedding，多智能体的阶段embedding取mean后与state拼接参与mix
+
+### pqmix_v2
+`pqmix_v2`在`qmix`的基础上引入了阶段索引，多智能体的阶段索引concat后与state拼接参与mix
 
 ### 几种算法
 #### TransT

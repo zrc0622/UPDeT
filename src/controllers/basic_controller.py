@@ -25,7 +25,7 @@ class BasicMAC:
         chosen_actions = self.action_selector.select_action(agent_outputs[bs], avail_actions[bs], t_env, test_mode=test_mode)
         return chosen_actions
 
-    def forward(self, ep_batch, t, test_mode=False):
+    def forward(self, ep_batch, t, test_mode=False, phase_kl=False):
 
         # rnn based agent
         if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2', 'phase_updet3']:
@@ -85,7 +85,10 @@ class BasicMAC:
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
                                                            self.args.enemy_num, self.args.ally_num)
 
-        return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
+        if phase_kl:
+            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), self.phase_states.view(ep_batch.batch_size, self.n_agents, -1)
+        else:
+            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
     def init_hidden(self, batch_size):
         if self.args.agent not in ['updet', 'transformer_aggregation', 'phase_updet1', 'phase_updet2', 'phase_updet3']:

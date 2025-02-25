@@ -71,12 +71,20 @@ class EpisodeRunner:
             episode_return += reward
 
             if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2", 'phase_updet3']):
-                post_transition_data = {
-                    "actions": actions,
-                    "reward": [(reward,)],
-                    "terminated": [(terminated != env_info.get("episode_limit", False),)],
-                    "phase_representation": self.mac.phase_representations.mean(dim=0),
-                }
+                if self.args.agent in ['phase_updet2'] and self.args.pqmix_v2:
+                    post_transition_data = {
+                        "actions": actions,
+                        "reward": [(reward,)],
+                        "terminated": [(terminated != env_info.get("episode_limit", False),)],
+                        "phase_representation": self.mac.phase_representations,
+                    }
+                else:
+                    post_transition_data = {
+                        "actions": actions,
+                        "reward": [(reward,)],
+                        "terminated": [(terminated != env_info.get("episode_limit", False),)],
+                        "phase_representation": self.mac.phase_representations.mean(dim=0),
+                    }
             else:
                 post_transition_data = {
                     "actions": actions,
@@ -89,12 +97,20 @@ class EpisodeRunner:
             self.t += 1
 
         if(self.args.mixer == "pqmix" and self.args.agent in ["phase_updet1", "phase_updet2", 'phase_updet3']):
-            last_data = {
-                "state": [self.env.get_state()],
-                "avail_actions": [self.env.get_avail_actions()],
-                "obs": [self.env.get_obs()],
-                "phase_representation": self.mac.phase_representations.mean(dim=0), # kl_3
-            }
+                if self.args.agent in ['phase_updet2'] and self.args.pqmix_v2:
+                    last_data = {
+                        "state": [self.env.get_state()],
+                        "avail_actions": [self.env.get_avail_actions()],
+                        "obs": [self.env.get_obs()],
+                        "phase_representation": self.mac.phase_representations,
+                    }
+                else:
+                    last_data = {
+                        "state": [self.env.get_state()],
+                        "avail_actions": [self.env.get_avail_actions()],
+                        "obs": [self.env.get_obs()],
+                        "phase_representation": self.mac.phase_representations.mean(dim=0),
+                    }
         else:
             last_data = {
                 "state": [self.env.get_state()],

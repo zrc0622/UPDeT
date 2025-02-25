@@ -23,7 +23,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--total-config=phase_updet2",
-                "--config=pqmix",
+                "--config=qmix",
                 "--env-config=sc2",
                 "with",
                 "env_args.map_name=5m_vs_6m"
@@ -41,6 +41,20 @@
                 "--env-config=sc2",
                 "with",
                 "env_args.map_name=5m_vs_6m"
+            ]
+        },
+        {
+            "name": "PUPDeT2_test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/phase_main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--total-config=phase_updet2_test",
+                "--config=pqmix",
+                "--env-config=sc2",
+                "with",
+                "env_args.map_name=8m_vs_9m"
             ]
         }
     ]

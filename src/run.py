@@ -94,15 +94,26 @@ def run_sequential(args, logger):
     args.state_shape = env_info["state_shape"]
 
     # Default/Base scheme
-    scheme = {
-        "state": {"vshape": env_info["state_shape"]},
-        "obs": {"vshape": env_info["obs_shape"], "group": "agents"},
-        "actions": {"vshape": (1,), "group": "agents", "dtype": th.long},
-        "avail_actions": {"vshape": (env_info["n_actions"],), "group": "agents", "dtype": th.int},
-        "reward": {"vshape": (1,)},
-        "terminated": {"vshape": (1,), "dtype": th.uint8},
-        "phase_representation": {"vshape": args.phase_rep}
-    }
+    if args.agent in ['phase_updet2'] and args.pqmix_v2:
+        scheme = {
+            "state": {"vshape": env_info["state_shape"]},
+            "obs": {"vshape": env_info["obs_shape"], "group": "agents"},
+            "actions": {"vshape": (1,), "group": "agents", "dtype": th.long},
+            "avail_actions": {"vshape": (env_info["n_actions"],), "group": "agents", "dtype": th.int},
+            "reward": {"vshape": (1,)},
+            "terminated": {"vshape": (1,), "dtype": th.uint8},
+            "phase_representation": {"vshape": args.ally_num}
+        }
+    else:
+        scheme = {
+            "state": {"vshape": env_info["state_shape"]},
+            "obs": {"vshape": env_info["obs_shape"], "group": "agents"},
+            "actions": {"vshape": (1,), "group": "agents", "dtype": th.long},
+            "avail_actions": {"vshape": (env_info["n_actions"],), "group": "agents", "dtype": th.int},
+            "reward": {"vshape": (1,)},
+            "terminated": {"vshape": (1,), "dtype": th.uint8},
+            "phase_representation": {"vshape": args.phase_rep}
+        }
     groups = {
         "agents": args.n_agents
     }

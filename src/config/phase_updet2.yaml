@@ -53,10 +53,13 @@ zero_shot: False
 phase_num: 6 # 阶段数
 phase_hidden: 48 # 阶段层中间维度
 phase_rep: 32 # 阶段表征维度
-temperature: 0.5
+phase_kl: True
+phase_kl_loss_weight: 0.000001
+temperature: 0.15
 divide_Q: False
 mask: False
 mask_prob: 0.2
+pqmix_v2: False # 得先在命令行开启pqmix，才能使用v2
 
 # --- Experiment running params ---
 repeat_id: 1
