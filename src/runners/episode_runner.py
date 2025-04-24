@@ -52,7 +52,7 @@ class EpisodeRunner:
         terminated = False
         episode_return = 0
         self.mac.init_hidden(batch_size=self.batch_size)
-
+        # print("-"*50)
         while not terminated:
 
             pre_transition_data = {
@@ -79,11 +79,17 @@ class EpisodeRunner:
                         "phase_representation": self.mac.phase_representations,
                     }
                 else:
-                    post_transition_data = {
+                    # post_transition_data = {
+                    #     "actions": actions,
+                    #     "reward": [(reward,)],
+                    #     "terminated": [(terminated != env_info.get("episode_limit", False),)],
+                    #     "phase_representation": self.mac.phase_representations.mean(dim=0),
+                    # }
+                    post_transition_data = { # 毕设结题
                         "actions": actions,
                         "reward": [(reward,)],
                         "terminated": [(terminated != env_info.get("episode_limit", False),)],
-                        "phase_representation": self.mac.phase_representations.mean(dim=0),
+                        "phase_representation": self.mac.phase_states.mean(dim=0),
                     }
             else:
                 post_transition_data = {
@@ -105,11 +111,17 @@ class EpisodeRunner:
                         "phase_representation": self.mac.phase_representations,
                     }
                 else:
-                    last_data = {
+                    # last_data = {
+                    #     "state": [self.env.get_state()],
+                    #     "avail_actions": [self.env.get_avail_actions()],
+                    #     "obs": [self.env.get_obs()],
+                    #     "phase_representation": self.mac.phase_representations.mean(dim=0),
+                    # }
+                    last_data = { # 毕设结题
                         "state": [self.env.get_state()],
                         "avail_actions": [self.env.get_avail_actions()],
                         "obs": [self.env.get_obs()],
-                        "phase_representation": self.mac.phase_representations.mean(dim=0),
+                        "phase_representation": self.mac.phase_states.mean(dim=0),
                     }
         else:
             last_data = {
@@ -150,8 +162,12 @@ class EpisodeRunner:
             print("dead_enemy_mean: ", cur_stats["dead_enemies"]/cur_stats["n_episodes"])
             print("n_episodes: ", cur_stats["n_episodes"])
             print("-"*50)
+            if self.args.zero_shot: return self.batch, cur_stats["battle_won"]/cur_stats["n_episodes"]*100
 
-        return self.batch
+        if not self.args.zero_shot:
+            return self.batch
+        else:
+            return self.batch, -1
 
     def _log(self, returns, stats, prefix):
         self.logger.log_stat(prefix + "return_mean", np.mean(returns), self.t_env)

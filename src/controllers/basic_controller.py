@@ -71,10 +71,14 @@ class BasicMAC:
                                                            self.phase_states.reshape(-1, 1, self.args.phase_num),
                                                            self.args.enemy_num, self.args.ally_num, test_mode)
             elif self.args.agent in ['phase_updet2']:
-                agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs, # kl_2
+                agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs, # 原来的&毕设结题，skill梯度不循环1
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
                                                            self.phase_states.reshape(-1, 1, self.args.phase_num),
                                                            self.args.enemy_num, self.args.ally_num, test_mode)
+                # agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs, # 毕设结题，skill梯度循环1
+                #                                            self.hidden_states.reshape(-1, 1, self.args.emb),
+                #                                            self.phase_representations.reshape(-1, 1, self.args.phase_num),
+                #                                            self.args.enemy_num, self.args.ally_num, test_mode)
             elif self.args.agent in ['phase_updet3']:
                 agent_outs, self.hidden_states, self.phase_states, self.phase_representations = self.agent(agent_inputs,
                                                            self.hidden_states.reshape(-1, 1, self.args.emb),
@@ -86,7 +90,8 @@ class BasicMAC:
                                                            self.args.enemy_num, self.args.ally_num)
 
         if phase_kl:
-            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), self.phase_states.view(ep_batch.batch_size, self.n_agents, -1)
+            # return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), self.phase_states.view(ep_batch.batch_size, self.n_agents, -1)
+            return agent_outs.view(ep_batch.batch_size, self.n_agents, -1), self.phase_representations.view(ep_batch.batch_size, self.n_agents, -1) # 毕设结题
         else:
             return agent_outs.view(ep_batch.batch_size, self.n_agents, -1)
 
@@ -97,7 +102,8 @@ class BasicMAC:
             self.hidden_states = self.agent.init_hidden().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1)
         
         if self.args.agent in ['phase_updet1', 'phase_updet2', 'phase_updet3']:
-            self.phase_states = self.agent.init_phase().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1)
+            self.phase_states = self.agent.init_phase().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1) # 原来的&毕设结题，skill梯度不循环1
+            # self.phase_representations = self.agent.init_phase().unsqueeze(0).expand(batch_size, self.n_agents, 1, -1) # 毕设结题，skill梯度循环2
 
 
     def parameters(self):

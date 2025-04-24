@@ -1,6 +1,7 @@
 3rdparty/
 __MACOSX/
 results/
+new_results/
 *.whl
 
 # Byte-compiled / optimized / DLL files

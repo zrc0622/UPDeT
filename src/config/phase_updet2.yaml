@@ -50,12 +50,13 @@ depth: 2 # block number of transformer
 ally_num: 5 # number of ally (5m_vs_6m)
 enemy_num: 6 # number of enemy (5m_vs_6m)
 zero_shot: False
-phase_num: 6 # 阶段数
+phase_num: 4 # 阶段数 6
 phase_hidden: 48 # 阶段层中间维度
-phase_rep: 32 # 阶段表征维度
-phase_kl: True
-phase_kl_loss_weight: 0.000001
-temperature: 0.15
+phase_rep: 16 # 阶段表征维度 32
+phase_kl: False
+phase_kl_loss_weight: 0
+temperature: 1
+gumbel_hard: False
 divide_Q: False
 mask: False
 mask_prob: 0.2

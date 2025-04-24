@@ -125,16 +125,26 @@ class QLearner:
         # Normal L2 loss, take mean over actual data
         loss = (masked_td_error ** 2).sum() / mask.sum()
 
-        # phase_kl
+        # # old phase_kl
+        # if self.args.phase_kl:
+        #     kl_mask = batch["filled"].clone()
+        #     done = batch["terminated"].clone()
+        #     kl_mask[:, 1:] = kl_mask[:, 1:] * (1 - done[:, :-1]) * (1 - done[:, 1:])
+        #     kl_loss = self.uniform_kl_loss(phase_states, kl_mask)
+        #     total_loss = kl_loss * self.args.phase_kl_loss_weight * self.mac.action_selector.epsilon + loss
+        # else:
+        #     total_loss = loss
+            
+        # 毕设结题
         if self.args.phase_kl:
             kl_mask = batch["filled"].clone()
             done = batch["terminated"].clone()
-            kl_mask[:, 1:] = kl_mask[:, 1:] * (1 - done[:, :-1]) * (1 - done[:, 1:])
+            kl_mask[:, 1:] = kl_mask[:, 1:] * (1 - done[:, :-1])
             kl_loss = self.uniform_kl_loss(phase_states, kl_mask)
-            total_loss = kl_loss * self.args.phase_kl_loss_weight * self.mac.action_selector.epsilon + loss
+            total_loss = kl_loss * self.args.phase_kl_loss_weight * (self.mac.action_selector.epsilon-0.05) + loss
         else:
             total_loss = loss
-            
+
         # Optimise
         self.optimiser.zero_grad()
         total_loss.backward()
@@ -185,6 +195,33 @@ class QLearner:
         # 平均处理：每个batch样本、每个智能体的损失权重相同
         loss = kl_per_agent.mean()  # 先对智能体求平均，再对batch求平均
         
+        return loss
+
+    # new kl
+    def uniform_kl_loss_2(self, action_probs, mask):
+        B, T, N, A = action_probs.shape  # batchsize, steps, nums, action
+        
+        # 扩展mask到与action_probs对齐 (B, T, N, 1)
+        mask = mask.unsqueeze(-1)
+        mask = mask.expand(-1, -1, N, -1)  # 自动广播到 (B, T, N, 1)
+
+        # 目标均匀分布 (B, N, A) 每个位置为1/A
+        target = th.ones_like(action_probs) / A
+
+        # 计算KL散度：对于每个有效时间步计算KL散度
+        # 只考虑有效的时间步
+        action_probs = action_probs.masked_select(mask.bool()).view(-1, A)  # (有效时间步数, A)
+        target = target.masked_select(mask.bool()).view(-1, A)  # (有效时间步数, A)
+
+        # 计算KL散度（KL(target||input)需要input是log概率）
+        kl_div = F.kl_div(action_probs.log(), target, reduction='none')  # (有效时间步数, A)
+        
+        # 按动作维度计算KL散度的均值
+        kl_per_step = kl_div.sum(dim=-1)  # (有效时间步数)
+        
+        # 计算最终损失：对所有有效时间步的KL散度取均值
+        loss = kl_per_step.mean()  # 对所有有效时间步求均值
+
         return loss
 
     def _update_targets(self):

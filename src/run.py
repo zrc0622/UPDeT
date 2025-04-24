@@ -74,13 +74,26 @@ def run(_run, _config, _log):
 
 
 def evaluate_sequential(args, runner):
-    for _ in range(args.test_nepisode):
-        runner.run(test_mode=True)
+    if not args.zero_shot:
+        for _ in range(args.test_nepisode):
+            runner.run(test_mode=True)
 
-    if args.save_replay:
-        runner.save_replay()
+        if args.save_replay:
+            runner.save_replay()
 
-    runner.close_env()
+        runner.close_env()
+    else:
+        result = []
+        for _ in range(20):
+            for _ in range(args.test_nepisode):
+                _, won = runner.run(test_mode=True)
+                if won != -1: result.append(won)
+        print(result)
+
+        if args.save_replay:
+            runner.save_replay()
+
+        runner.close_env()
 
 def run_sequential(args, logger):
 
@@ -112,7 +125,8 @@ def run_sequential(args, logger):
             "avail_actions": {"vshape": (env_info["n_actions"],), "group": "agents", "dtype": th.int},
             "reward": {"vshape": (1,)},
             "terminated": {"vshape": (1,), "dtype": th.uint8},
-            "phase_representation": {"vshape": args.phase_rep}
+            # "phase_representation": {"vshape": args.phase_rep}
+            "phase_representation": {"vshape": args.phase_num} # 毕设结题
         }
     groups = {
         "agents": args.n_agents

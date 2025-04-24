@@ -1,19 +1,33 @@
 # 训练
 ```bash
 # UPDeT (baseline)
-python3 src/main.py --total-config=default_test --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
+python3 src/main.py --total-config=default --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
+
+python3 src/main.py --total-config=default_test --config=qmix --env-config=sc2_test with env_args.map_name=8m_vs_9m
 
 # Phase UPDeT 1
 python3 src/phase_main.py --total-config=phase_updet1 --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
 
+python3 src/phase_main.py --total-config=phase_updet1_test --config=qmix --env-config=sc2_test with env_args.map_name=8m_vs_9m
+
 # Phase UPDeT 2
 python3 src/phase_main.py --total-config=phase_updet2 --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
 
-python3 src/phase_main.py --total-config=phase_updet2_test --config=qmix --env-config=sc2 with env_args.map_name=8m_vs_9m
+python3 src/phase_main.py --total-config=phase_updet2 --config=pqmix --env-config=sc2 with env_args.map_name=5m_vs_6m
+
+python3 src/phase_main.py --total-config=phase_updet2_test --config=qmix --env-config=sc2_test with env_args.map_name=8m_vs_9m
 
 # Phase UPDeT 3
 python3 src/phase_main.py --total-config=phase_updet3 --config=qmix --env-config=sc2 with env_args.map_name=5m_vs_6m
 ```
+
+# 8m_9m结果
+UPDeT：3.7
+DASEN-v1：33.55
+DASEN-v2：33.7
+DASEN-v3：48.1
+DASEN-v3+SE-QMIX：68.55
+DASEN-v4+SE-QMIX（无skill embedding）：60.1
 
 # 介绍
 ## 环境介绍
@@ -51,16 +65,3 @@ python3 src/phase_main.py --total-config=phase_updet3 --config=qmix --env-config
 
 ### pqmix_v2
 `pqmix_v2`在`qmix`的基础上引入了阶段索引，多智能体的阶段索引concat后与state拼接参与mix
-
-### 几种算法
-#### TransT
-#### DivideT
-```
-Phase UPDeT 2
-QMIX
-temperature 0.15
-phase_num 6
-divide_Q False
-intput_Q_phase True
-```
-#### DivideP

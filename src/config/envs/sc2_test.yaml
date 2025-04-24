@@ -1,4 +1,4 @@
-env: sc2
+env: sc2_test
 
 env_args:
   continuing_episode: False
@@ -32,7 +32,7 @@ env_args:
   debug: False
 
 test_greedy: True
-test_nepisode: 32 # 101 # 毕设结题，测试1
+test_nepisode: 101
 test_interval: 10000
 log_interval: 10000
 runner_log_interval: 10000
